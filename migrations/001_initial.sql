@@ -1,0 +1,17 @@
+CREATE TABLE IF NOT EXISTS schema_migrations(version INTEGER PRIMARY KEY);
+CREATE TABLE authorities(id TEXT PRIMARY KEY, name TEXT NOT NULL, email TEXT, CHECK(email IS NULL OR instr(email,'@')>1));
+INSERT INTO authorities VALUES ('rita','Rita Godiyal',NULL),('hemant','Hemant Kumar',NULL);
+CREATE TABLE routes(category TEXT PRIMARY KEY, authority_id TEXT NOT NULL REFERENCES authorities(id));
+INSERT INTO routes VALUES ('TRANSCRIPT','rita'),('PROVISIONAL_DEGREE','rita'),('DEGREE_VERIFICATION','rita'),('MEDIUM_OF_INSTRUCTION','rita'),('DEGREE_COLLECTION','rita'),('MIGRATION','hemant');
+CREATE TABLE concerns(id INTEGER PRIMARY KEY, message_id TEXT NOT NULL UNIQUE, graph_id TEXT NOT NULL UNIQUE, thread_id TEXT NOT NULL, sender TEXT NOT NULL, subject TEXT NOT NULL, body TEXT NOT NULL, received_at TEXT NOT NULL, category TEXT NOT NULL DEFAULT 'UNKNOWN', authority_id TEXT REFERENCES authorities(id), status TEXT NOT NULL DEFAULT 'RECEIVED', version INTEGER NOT NULL DEFAULT 0, updated_at TEXT NOT NULL, CHECK(status IN ('RECEIVED','IDENTIFIED','AWAITING_APPROVAL','FORWARDED','ADDRESSED','AWAITING_CONFIRMATION','CLOSED','NEEDS_REVIEW','REOPENED','FAILED')));
+CREATE INDEX concerns_status_received ON concerns(status,received_at);
+CREATE INDEX concerns_thread ON concerns(thread_id);
+CREATE TABLE audit(id INTEGER PRIMARY KEY, concern_id INTEGER REFERENCES concerns(id), actor TEXT NOT NULL, event TEXT NOT NULL, details TEXT NOT NULL, created_at TEXT NOT NULL);
+CREATE INDEX audit_concern ON audit(concern_id,id);
+CREATE TABLE jobs(id INTEGER PRIMARY KEY, concern_id INTEGER NOT NULL REFERENCES concerns(id), kind TEXT NOT NULL CHECK(kind IN ('FORWARD','FOLLOWUP')), state TEXT NOT NULL DEFAULT 'PENDING' CHECK(state IN ('PENDING','RUNNING','SUCCEEDED','FAILED','UNCERTAIN')), recipient TEXT NOT NULL, approved_by TEXT, approved_version INTEGER, draft_id TEXT, attempts INTEGER NOT NULL DEFAULT 0, error TEXT, dry_run INTEGER NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+CREATE UNIQUE INDEX jobs_active ON jobs(concern_id,kind) WHERE state IN ('PENDING','RUNNING','UNCERTAIN');
+CREATE TABLE receipts(message_id TEXT PRIMARY KEY, concern_id INTEGER REFERENCES concerns(id), payload TEXT NOT NULL, created_at TEXT NOT NULL);
+CREATE TABLE checkpoints(name TEXT PRIMARY KEY,value TEXT NOT NULL);
+CREATE TABLE sessions(token_hash TEXT PRIMARY KEY, csrf TEXT NOT NULL, expires_at REAL NOT NULL, username TEXT NOT NULL);
+CREATE TABLE login_attempts(address TEXT PRIMARY KEY, attempts INTEGER NOT NULL, reset_at REAL NOT NULL);
+INSERT INTO schema_migrations VALUES(1);

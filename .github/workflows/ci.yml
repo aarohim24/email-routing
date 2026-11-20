@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Offline validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: addin/package-lock.json
+      - name: Install Python dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Install add-in dependencies
+        run: npm --prefix addin ci --ignore-scripts
+      - name: Test backend
+        run: python -m unittest discover -s tests -v
+      - name: Test add-in
+        run: npm --prefix addin test
+      - name: Build add-in
+        run: npm --prefix addin run build
+      - name: Run offline workflow walkthrough
+        run: python scripts/offline_walkthrough.py
+      - name: Check whitespace
+        run: git diff --check

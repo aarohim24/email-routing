@@ -1,0 +1,38 @@
+services:
+  migrate:
+    build: .
+    env_file: .env
+    environment:
+      DATABASE_PATH: /app/data/alumni.db
+    command: ["python", "-m", "alumni", "migrate"]
+    volumes: ["alumni-data:/app/data"]
+    restart: "no"
+  web:
+    build: .
+    env_file: .env
+    environment:
+      DATABASE_PATH: /app/data/alumni.db
+    ports: ["127.0.0.1:8000:8000"]
+    volumes: ["alumni-data:/app/data"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/readyz')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+  worker:
+    build: .
+    env_file: .env
+    environment:
+      DATABASE_PATH: /app/data/alumni.db
+    command: ["python", "-m", "alumni", "worker"]
+    volumes: ["alumni-data:/app/data"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+volumes:
+  alumni-data:
